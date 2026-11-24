@@ -230,6 +230,7 @@ static int jfont_slot(JFont *j, int code)
 #define MAXCH 168
 
 /* test mode: remember every English string that reaches the screen untranslated */
+#ifdef DLJP_TEST
 static void log_untranslated(const uint8_t *s)
 {
     static uint32_t seen[8192];
@@ -249,6 +250,7 @@ static void log_untranslated(const uint8_t *s)
     if (nseen < 8192) seen[nseen++] = h;
     dlog("UNTR|%s", s);
 }
+#endif
 
 /* savegame names keep the English "Save N - ... - Lvl N" (so the English game still lists them);
    show those two words in Japanese */
@@ -291,6 +293,7 @@ static void __fastcall my_drawstring(int fid, const uint8_t *s, int x, int y, in
     if (!((double)scale > 0.05)) return;
     f = G_FONTS[fid];
     s = disp_fix(s, fixbuf, sizeof fixbuf);
+#ifdef DLJP_TEST
     if (g_test) {
         log_untranslated(s);
         if (s[0] >= 0xa1 && s[1] == 0) dlog("LONE %02x font %d from %p", s[0], fid, _ReturnAddress());
@@ -298,6 +301,7 @@ static void __fastcall my_drawstring(int fid, const uint8_t *s, int x, int y, in
         if (s[-1] >= 0xa1 && jp_lead(s)) dlog("MID %02x|%02x %02x font %d from %p", s[-1], s[0], s[1], fid, _ReturnAddress());
         if (s[0] && s[1] && !jp_lead(s) && jp_lead(s + 1)) dlog("SKEW %02x %02x %02x font %d from %p", s[0], s[1], s[2], fid, _ReturnAddress());
     }
+#endif
     inv = 1.0f / scale;
     fx = (float)x * inv;
     fy = (float)y * inv;
@@ -466,11 +470,16 @@ static void load_font(void)
 
 void render_init(void)
 {
+#ifdef DLJP_TEST
     char buf[128];
+#endif
     load_font();
+#ifdef DLJP_TEST
+    /* 字形の調整用（試験版だけ） */
     if (GetEnvironmentVariableA("DLJP_FACE", buf, sizeof buf)) MultiByteToWideChar(CP_ACP, 0, buf, -1, g_face, 64);
     if (GetEnvironmentVariableA("DLJP_WEIGHT", buf, sizeof buf)) g_weight = atoi(buf);
     if (GetEnvironmentVariableA("DLJP_EMK", buf, sizeof buf)) g_emk = (float)atof(buf);
+#endif
     patch_jmp(A_DRAWSTRING, (void *)my_drawstring);
     patch_jmp(A_STRWIDTH, (void *)my_strwidth);
     patch_jmp(A_CHARSFIT, (void *)my_charsfit);

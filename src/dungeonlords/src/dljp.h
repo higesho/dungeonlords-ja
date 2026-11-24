@@ -30,16 +30,24 @@ typedef void  (__fastcall *FlushFn)(void **tex, int filt, int tris, void *verts)
 typedef void **(__fastcall *MkTexFn)(int *desc);
 
 /* ---- dljp.c ---- */
+#ifdef DLJP_TEST
 extern int g_test;                      /* DLJP_TEST=1 */
 void dlog(const char *fmt, ...);
+#else
+/* 配布版には試験の仕組みも記録も入れない */
+#define g_test 0
+#define dlog(...) ((void)0)
+#endif
 void patch_jmp(uint32_t at, void *to);
 void patch_bytes(uint32_t at, const void *b, int n);
 void *iat_hook(const char *dll, const char *func, void *repl);
 
-/* ---- testio.c ---- */
+#ifdef DLJP_TEST
+/* ---- testio.c（試験版だけ） ---- */
 void testio_init(void);
 void testio_present(void *dev);         /* IDirect3DDevice9* */
 HRESULT testio_wrap_dinput(void *di);   /* IDirectInput8A* */
+#endif
 
 /* ---- render.c ---- */
 void render_init(void);

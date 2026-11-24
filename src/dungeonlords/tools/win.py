@@ -1,5 +1,5 @@
 # Drive the test game through the DLL's shared memory (never the foreground window).
-#   python tools/win.py start            copy build/dinput8.dll into the game, launch with DLJP_TEST=1
+#   python tools/win.py start            copy build/test/dinput8.dll (試験版: src/build.bat test) into the game, launch with DLJP_TEST=1
 #   python tools/win.py shot NAME [W]    back-buffer capture -> capture/NAME.png (optional width)
 #   python tools/win.py key K [K..]      tap keys (DIK names: enter esc space up down left right tab f1.. a..z 0..9)
 #   python tools/win.py hold K MS
@@ -77,7 +77,7 @@ def shot(name, width=None):
 
 def start():
     exe = os.path.join(GAME, 'DLSteamEdition.exe')
-    shutil.copy(os.path.join(ROOT, 'build', 'dinput8.dll'), os.path.join(GAME, 'dinput8.dll'))
+    shutil.copy(os.path.join(ROOT, 'build', 'test', 'dinput8.dll'), os.path.join(GAME, 'dinput8.dll'))   # 試験版を使う
     env = dict(os.environ)
     env['DLJP_TEST'] = '1'
     env['DLJP_LOG'] = os.path.join(ROOT, 'work', 'dljp.log')

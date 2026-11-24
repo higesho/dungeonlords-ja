@@ -2,13 +2,17 @@
 #include "dljp.h"
 #include <stdio.h>
 #include <stdarg.h>
+#ifdef DLJP_TEST
 #include <d3d9.h>
+#endif
 
 void proxy_init(void);
 HRESULT WINAPI real_DirectInput8Create(HINSTANCE h, DWORD v, REFIID r, LPVOID *o, LPUNKNOWN u);
 
-int g_test;
 HMODULE g_self;
+#ifdef DLJP_TEST
+/* 試験版だけ: DLJP_TEST=1 で試験の操作口、DLJP_LOG=<ファイル> で記録 */
+int g_test;
 static FILE *g_log;
 static CRITICAL_SECTION g_logcs;
 
@@ -24,6 +28,7 @@ void dlog(const char *fmt, ...)
     fflush(g_log);
     LeaveCriticalSection(&g_logcs);
 }
+#endif
 
 void patch_bytes(uint32_t at, const void *b, int n)
 {
@@ -196,6 +201,7 @@ static DWORD WINAPI h_GetFileAttributesA(LPCSTR p)
     return GetFileAttributesW(w);
 }
 
+#ifdef DLJP_TEST
 /* ---------- test mode: windowed D3D, no cursor clipping ---------- */
 static HRESULT (STDMETHODCALLTYPE *o_CreateDevice)(IDirect3D9 *, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS *, IDirect3DDevice9 **);
 static HRESULT (STDMETHODCALLTYPE *o_Reset)(IDirect3DDevice9 *, D3DPRESENT_PARAMETERS *);
@@ -269,20 +275,25 @@ static IDirect3D9 *WINAPI h_Direct3DCreate9(UINT v)
 static BOOL WINAPI h_ClipCursor(const RECT *r) { (void)r; return TRUE; }
 static HWND WINAPI h_SetCapture(HWND w) { (void)w; return NULL; }
 static BOOL WINAPI h_ReleaseCapture(void) { return TRUE; }
+#endif
 
 HRESULT WINAPI p_DirectInput8Create(HINSTANCE h, DWORD v, REFIID r, LPVOID *o, LPUNKNOWN u)
 {
     HRESULT hr = real_DirectInput8Create(h, v, r, o, u);
+#ifdef DLJP_TEST
     if (g_test && SUCCEEDED(hr)) testio_wrap_dinput(*o);
+#endif
     return hr;
 }
 
 static void init(HMODULE self)
 {
+#ifdef DLJP_TEST
     char buf[MAX_PATH];
     InitializeCriticalSection(&g_logcs);
     if (GetEnvironmentVariableA("DLJP_TEST", buf, sizeof buf) && buf[0] == '1') g_test = 1;
     if (GetEnvironmentVariableA("DLJP_LOG", buf, sizeof buf)) g_log = fopen(buf, "w");
+#endif
     /* only patch the game we know */
     static const uint8_t sig_draw[5] = { 0x51, 0xd9, 0x44, 0x24, 0x14 }, sig_w[4] = { 0x56, 0x8b, 0x34, 0x8d };
     if (memcmp((void *)A_DRAWSTRING, sig_draw, 5) || memcmp((void *)A_STRWIDTH, sig_w, 4)) {
@@ -297,6 +308,8 @@ static void init(HMODULE self)
     iat_hook("KERNEL32.dll", "DeleteFileA", (void *)h_DeleteFileA);
     iat_hook("KERNEL32.dll", "MoveFileA", (void *)h_MoveFileA);
     iat_hook("KERNEL32.dll", "GetFileAttributesA", (void *)h_GetFileAttributesA);
+#ifdef DLJP_TEST
+    /* 窓での表示（DLJP_WINDOWED=1）も試験版だけ */
     if (g_test || (GetEnvironmentVariableA("DLJP_WINDOWED", buf, sizeof buf) && buf[0] == '1'))
         o_Direct3DCreate9 = iat_hook("d3d9.dll", "Direct3DCreate9", (void *)h_Direct3DCreate9);
     if (g_test) {
@@ -305,6 +318,7 @@ static void init(HMODULE self)
         iat_hook("USER32.dll", "ReleaseCapture", (void *)h_ReleaseCapture);
         testio_init();
     }
+#endif
     text_init(self);
     exe_strings_init(self);
     render_init();
